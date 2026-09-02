@@ -38,6 +38,7 @@ npm run preview
 - [Инструкции для Codex](AGENTS.md)
 - [План игры и milestones](docs/GAME_PLAN.md)
 - [Готовые запросы и workflow](docs/CODEX_WORKFLOW.md)
+- [Концепции персонажей](docs/CHARACTERS.md)
 
 ## Текущий этап
 
