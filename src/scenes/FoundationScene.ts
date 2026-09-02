@@ -1,5 +1,9 @@
 import Phaser from "phaser";
 
+import {
+  FighterStateMachine,
+  type FighterSnapshot,
+} from "../actors/FighterStateMachine";
 import { ARENA_CONFIG } from "../data/arena";
 import { PLAYER_CONFIG } from "../data/player";
 import { clampActorToArena } from "../game/arenaPerspective";
@@ -11,6 +15,8 @@ export class FoundationScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
   private playerBody!: Phaser.Physics.Arcade.Body;
   private movementInput!: KeyboardMovementInput;
+  private fighterState!: FighterStateMachine;
+  private stateLabel!: Phaser.GameObjects.Text;
 
   constructor() {
     super("foundation");
@@ -81,7 +87,7 @@ export class FoundationScene extends Phaser.Scene {
       .setDepth(1000);
 
     this.add
-      .text(GAME_WIDTH / 2, 155, "M1.5 • 2.5D-арена", {
+      .text(GAME_WIDTH / 2, 155, "M2.1 • Состояния бойца", {
         color: "#78f0be",
         fontFamily: "Arial, sans-serif",
         fontSize: "30px",
@@ -93,7 +99,7 @@ export class FoundationScene extends Phaser.Scene {
       .text(
         GAME_WIDTH / 2,
         215,
-        "WASD или стрелки",
+        "WASD / стрелки • Пробел — атака",
         {
           align: "center",
           color: "#b9cbd6",
@@ -102,6 +108,15 @@ export class FoundationScene extends Phaser.Scene {
           lineSpacing: 10,
         },
       )
+      .setOrigin(0.5)
+      .setDepth(1000);
+
+    this.stateLabel = this.add
+      .text(GAME_WIDTH / 2, 258, "СТОИТ", {
+        color: "#b9cbd6",
+        fontFamily: "monospace",
+        fontSize: "20px",
+      })
       .setOrigin(0.5)
       .setDepth(1000);
 
@@ -120,9 +135,10 @@ export class FoundationScene extends Phaser.Scene {
     this.playerBody.setImmovable(true);
 
     this.movementInput = new KeyboardMovementInput(this);
+    this.fighterState = new FighterStateMachine(PLAYER_CONFIG.attackTimings);
   }
 
-  update(): void {
+  update(_time: number, delta: number): void {
     const position = clampActorToArena(
       this.player.x,
       this.player.y,
@@ -134,8 +150,37 @@ export class FoundationScene extends Phaser.Scene {
     this.player.setScale(position.scale);
     this.player.setDepth(position.depth);
 
-    const { moveX, moveY } = this.movementInput.read();
-    const velocity = getMovementVelocity(moveX, moveY, PLAYER_CONFIG.moveSpeed);
+    const intent = this.movementInput.read();
+    const snapshot = this.fighterState.update(intent, delta);
+    const velocity =
+      snapshot.state === "attack"
+        ? { x: 0, y: 0 }
+        : getMovementVelocity(intent.moveX, intent.moveY, PLAYER_CONFIG.moveSpeed);
     this.playerBody.setVelocity(velocity.x, velocity.y);
+    this.updateFighterPresentation(snapshot);
+  }
+
+  private updateFighterPresentation(snapshot: FighterSnapshot): void {
+    if (snapshot.state === "attack") {
+      const phaseLabels = {
+        startup: "АТАКА • ПОДГОТОВКА",
+        active: "АТАКА • УДАР",
+        recovery: "АТАКА • ВОССТАНОВЛЕНИЕ",
+      } as const;
+      const phase = snapshot.attackPhase ?? "startup";
+
+      this.player.setFillStyle(0xffb43c);
+      this.stateLabel.setText(phaseLabels[phase]);
+      return;
+    }
+
+    if (snapshot.state === "move") {
+      this.player.setFillStyle(0x54e6a2);
+      this.stateLabel.setText("ДВИЖЕНИЕ");
+      return;
+    }
+
+    this.player.setFillStyle(0x37d6ff);
+    this.stateLabel.setText("СТОИТ");
   }
 }
