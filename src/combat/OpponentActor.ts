@@ -1,10 +1,10 @@
 import type Phaser from "phaser";
 
 import type { ArenaConfig } from "../data/arena";
-import type { DummyConfig } from "../data/combat";
+import type { OpponentConfig } from "../data/combat";
 import { clampActorToArena } from "../game/arenaPerspective";
 
-export class CombatDummy {
+export class OpponentActor {
   readonly hurtbox: Phaser.GameObjects.Zone;
 
   private readonly body: Phaser.Physics.Arcade.Body;
@@ -16,7 +16,7 @@ export class CombatDummy {
 
   constructor(
     private readonly scene: Phaser.Scene,
-    private readonly config: DummyConfig,
+    private readonly config: OpponentConfig,
     private readonly arenaConfig: ArenaConfig,
   ) {
     this.health = config.maxHealth;
@@ -119,6 +119,6 @@ export class CombatDummy {
   }
 
   private updateHealthLabel(): void {
-    this.healthLabel.setText(`DUMMY ${this.health}/${this.config.maxHealth}`);
+    this.healthLabel.setText(`OPPONENT ${this.health}/${this.config.maxHealth}`);
   }
 }

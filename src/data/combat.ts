@@ -1,4 +1,4 @@
-export interface DummyConfig {
+export interface OpponentConfig {
   readonly x: number;
   readonly y: number;
   readonly width: number;
@@ -21,7 +21,7 @@ export interface AIPositioningConfig {
   readonly yTolerance: number;
 }
 
-export const DUMMY_CONFIG: DummyConfig = {
+export const OPPONENT_CONFIG: OpponentConfig = {
   x: 800,
   y: 540,
   width: 80,

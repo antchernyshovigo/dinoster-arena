@@ -11,12 +11,12 @@ import {
   getFacingDirection,
   PLAYER_ATTACK_HITBOX_CONFIG,
 } from "../combat/AttackHitbox";
-import { CombatDummy } from "../combat/CombatDummy";
+import { OpponentActor } from "../combat/OpponentActor";
 import { ARENA_CONFIG } from "../data/arena";
 import {
   AI_POSITIONING_CONFIG,
   COMBAT_CONFIG,
-  DUMMY_CONFIG,
+  OPPONENT_CONFIG,
 } from "../data/combat";
 import { PLAYER_CONFIG } from "../data/player";
 import { clampActorToArena } from "../game/arenaPerspective";
@@ -33,7 +33,7 @@ export class FoundationScene extends Phaser.Scene {
   private combatInput!: KeyboardCombatInput;
   private fighterState!: FighterStateMachine;
   private attackHitbox!: AttackHitbox;
-  private dummy!: CombatDummy;
+  private opponent!: OpponentActor;
   private opponentAI!: PositioningAI;
   private stateLabel!: Phaser.GameObjects.Text;
   private facing: FacingDirection = "right";
@@ -161,7 +161,7 @@ export class FoundationScene extends Phaser.Scene {
       this,
       PLAYER_ATTACK_HITBOX_CONFIG,
     );
-    this.dummy = new CombatDummy(this, DUMMY_CONFIG, ARENA_CONFIG);
+    this.opponent = new OpponentActor(this, OPPONENT_CONFIG, ARENA_CONFIG);
     this.opponentAI = new PositioningAI(AI_POSITIONING_CONFIG);
   }
 
@@ -177,7 +177,7 @@ export class FoundationScene extends Phaser.Scene {
     this.player.setScale(position.scale);
     this.player.setDepth(position.depth);
 
-    const opponentPosition = this.dummy.getPosition();
+    const opponentPosition = this.opponent.getPosition();
     const opponentIntent = this.opponentAI.update({
       playerX: position.x,
       playerY: position.y,
@@ -189,7 +189,7 @@ export class FoundationScene extends Phaser.Scene {
       opponentIntent.moveY,
       AI_POSITIONING_CONFIG.moveSpeed,
     );
-    this.dummy.move(opponentVelocity.x, opponentVelocity.y, delta);
+    this.opponent.move(opponentVelocity.x, opponentVelocity.y, delta);
 
     const movementIntent = this.movementInput.read();
     const combatIntent = this.combatInput.read();
@@ -214,8 +214,8 @@ export class FoundationScene extends Phaser.Scene {
       facing: this.facing,
       active: snapshot.state === "attack" && snapshot.attackPhase === "active",
     });
-    if (this.attackHitbox.tryHit(this.dummy.hurtbox)) {
-      this.dummy.takeDamage(COMBAT_CONFIG.attackDamage);
+    if (this.attackHitbox.tryHit(this.opponent.hurtbox)) {
+      this.opponent.takeDamage(COMBAT_CONFIG.attackDamage);
     }
   }
 
