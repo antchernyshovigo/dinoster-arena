@@ -1,3 +1,5 @@
+import type { AttackTimings } from "./player";
+
 export interface OpponentConfig {
   readonly x: number;
   readonly y: number;
@@ -7,6 +9,7 @@ export interface OpponentConfig {
   readonly hitFlashMs: number;
   readonly color: number;
   readonly hitColor: number;
+  readonly attackTimings: AttackTimings;
 }
 
 export interface CombatConfig {
@@ -21,6 +24,13 @@ export interface AIPositioningConfig {
   readonly yTolerance: number;
 }
 
+export interface OpponentCombatAIConfig {
+  readonly cooldownMs: number;
+  readonly minAttackDistanceX: number;
+  readonly maxAttackDistanceX: number;
+  readonly yTolerance: number;
+}
+
 export const OPPONENT_CONFIG: OpponentConfig = {
   x: 800,
   y: 540,
@@ -30,6 +40,11 @@ export const OPPONENT_CONFIG: OpponentConfig = {
   hitFlashMs: 120,
   color: 0xb86cff,
   hitColor: 0xffffff,
+  attackTimings: {
+    startupMs: 180,
+    activeMs: 100,
+    recoveryMs: 320,
+  },
 };
 
 export const COMBAT_CONFIG: CombatConfig = {
@@ -41,5 +56,12 @@ export const AI_POSITIONING_CONFIG: AIPositioningConfig = {
   preferredMinDistanceX: 130,
   preferredMaxDistanceX: 170,
   tooCloseDistanceX: 100,
+  yTolerance: 40,
+};
+
+export const OPPONENT_COMBAT_AI_CONFIG: OpponentCombatAIConfig = {
+  cooldownMs: 1000,
+  minAttackDistanceX: 100,
+  maxAttackDistanceX: 170,
   yTolerance: 40,
 };

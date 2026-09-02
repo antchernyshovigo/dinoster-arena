@@ -1,5 +1,6 @@
 import type Phaser from "phaser";
 
+import type { FighterSnapshot } from "../actors/FighterStateMachine";
 import type { ArenaConfig } from "../data/arena";
 import type { OpponentConfig } from "../data/combat";
 import { clampActorToArena } from "../game/arenaPerspective";
@@ -11,7 +12,8 @@ export class OpponentActor {
   private readonly visual: Phaser.GameObjects.Rectangle;
   private readonly healthLabel: Phaser.GameObjects.Text;
   private health: number;
-  private position: { x: number; y: number };
+  private pose: { x: number; y: number; scale: number; depth: number };
+  private stateText = "IDLE";
   private hitFlash?: Phaser.Time.TimerEvent;
 
   constructor(
@@ -28,7 +30,7 @@ export class OpponentActor {
       config.height,
       arenaConfig,
     );
-    this.position = { x: position.x, y: position.y };
+    this.pose = position;
 
     this.visual = scene.add
       .rectangle(
@@ -88,18 +90,27 @@ export class OpponentActor {
     });
   }
 
+  updateStatePresentation(snapshot: FighterSnapshot): void {
+    if (snapshot.state === "attack") {
+      this.stateText = `ATTACK ${snapshot.attackPhase ?? "startup"}`.toUpperCase();
+    } else {
+      this.stateText = snapshot.state.toUpperCase();
+    }
+    this.updateHealthLabel();
+  }
+
   move(velocityX: number, velocityY: number, deltaMs: number): void {
     const deltaSeconds = deltaMs / 1000;
     const position = clampActorToArena(
-      this.position.x + velocityX * deltaSeconds,
-      this.position.y + velocityY * deltaSeconds,
+      this.pose.x + velocityX * deltaSeconds,
+      this.pose.y + velocityY * deltaSeconds,
       this.config.width,
       this.config.height,
       this.arenaConfig,
     );
     const width = this.config.width * position.scale;
     const height = this.config.height * position.scale;
-    this.position = { x: position.x, y: position.y };
+    this.pose = position;
 
     this.hurtbox.setPosition(position.x, position.y).setSize(width, height);
     this.body.setSize(width, height);
@@ -115,10 +126,21 @@ export class OpponentActor {
   }
 
   getPosition(): { readonly x: number; readonly y: number } {
-    return this.position;
+    return this.pose;
+  }
+
+  getPose(): {
+    readonly x: number;
+    readonly y: number;
+    readonly scale: number;
+    readonly depth: number;
+  } {
+    return this.pose;
   }
 
   private updateHealthLabel(): void {
-    this.healthLabel.setText(`OPPONENT ${this.health}/${this.config.maxHealth}`);
+    this.healthLabel.setText(
+      `OPPONENT ${this.health}/${this.config.maxHealth} • ${this.stateText}`,
+    );
   }
 }
