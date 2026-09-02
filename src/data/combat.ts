@@ -13,6 +13,14 @@ export interface CombatConfig {
   readonly attackDamage: number;
 }
 
+export interface AIPositioningConfig {
+  readonly moveSpeed: number;
+  readonly preferredMinDistanceX: number;
+  readonly preferredMaxDistanceX: number;
+  readonly tooCloseDistanceX: number;
+  readonly yTolerance: number;
+}
+
 export const DUMMY_CONFIG: DummyConfig = {
   x: 800,
   y: 540,
@@ -26,4 +34,12 @@ export const DUMMY_CONFIG: DummyConfig = {
 
 export const COMBAT_CONFIG: CombatConfig = {
   attackDamage: 1,
+};
+
+export const AI_POSITIONING_CONFIG: AIPositioningConfig = {
+  moveSpeed: 180,
+  preferredMinDistanceX: 130,
+  preferredMaxDistanceX: 170,
+  tooCloseDistanceX: 100,
+  yTolerance: 40,
 };

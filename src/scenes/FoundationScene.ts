@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 
+import { PositioningAI } from "../ai/PositioningAI";
 import {
   FighterStateMachine,
   type FighterSnapshot,
@@ -12,7 +13,11 @@ import {
 } from "../combat/AttackHitbox";
 import { CombatDummy } from "../combat/CombatDummy";
 import { ARENA_CONFIG } from "../data/arena";
-import { COMBAT_CONFIG, DUMMY_CONFIG } from "../data/combat";
+import {
+  AI_POSITIONING_CONFIG,
+  COMBAT_CONFIG,
+  DUMMY_CONFIG,
+} from "../data/combat";
 import { PLAYER_CONFIG } from "../data/player";
 import { clampActorToArena } from "../game/arenaPerspective";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/config";
@@ -29,6 +34,7 @@ export class FoundationScene extends Phaser.Scene {
   private fighterState!: FighterStateMachine;
   private attackHitbox!: AttackHitbox;
   private dummy!: CombatDummy;
+  private opponentAI!: PositioningAI;
   private stateLabel!: Phaser.GameObjects.Text;
   private facing: FacingDirection = "right";
 
@@ -101,7 +107,7 @@ export class FoundationScene extends Phaser.Scene {
       .setDepth(1000);
 
     this.add
-      .text(GAME_WIDTH / 2, 155, "M2.3 • Combat dummy", {
+      .text(GAME_WIDTH / 2, 155, "M3.1a • AI movement", {
         color: "#78f0be",
         fontFamily: "Arial, sans-serif",
         fontSize: "30px",
@@ -156,6 +162,7 @@ export class FoundationScene extends Phaser.Scene {
       PLAYER_ATTACK_HITBOX_CONFIG,
     );
     this.dummy = new CombatDummy(this, DUMMY_CONFIG, ARENA_CONFIG);
+    this.opponentAI = new PositioningAI(AI_POSITIONING_CONFIG);
   }
 
   update(_time: number, delta: number): void {
@@ -169,6 +176,20 @@ export class FoundationScene extends Phaser.Scene {
     this.player.setPosition(position.x, position.y);
     this.player.setScale(position.scale);
     this.player.setDepth(position.depth);
+
+    const opponentPosition = this.dummy.getPosition();
+    const opponentIntent = this.opponentAI.update({
+      playerX: position.x,
+      playerY: position.y,
+      opponentX: opponentPosition.x,
+      opponentY: opponentPosition.y,
+    });
+    const opponentVelocity = getMovementVelocity(
+      opponentIntent.moveX,
+      opponentIntent.moveY,
+      AI_POSITIONING_CONFIG.moveSpeed,
+    );
+    this.dummy.move(opponentVelocity.x, opponentVelocity.y, delta);
 
     const movementIntent = this.movementInput.read();
     const combatIntent = this.combatInput.read();
