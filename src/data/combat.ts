@@ -61,7 +61,7 @@ export const AI_POSITIONING_CONFIG: AIPositioningConfig = {
 
 export const OPPONENT_COMBAT_AI_CONFIG: OpponentCombatAIConfig = {
   cooldownMs: 1000,
-  minAttackDistanceX: 130,
+  minAttackDistanceX: 100,
   maxAttackDistanceX: 170,
   yTolerance: 40,
 };
