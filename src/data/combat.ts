@@ -14,6 +14,7 @@ export interface OpponentConfig {
 
 export interface CombatConfig {
   readonly attackDamage: number;
+  readonly opponentAttackDamage: number;
 }
 
 export interface AIPositioningConfig {
@@ -49,6 +50,7 @@ export const OPPONENT_CONFIG: OpponentConfig = {
 
 export const COMBAT_CONFIG: CombatConfig = {
   attackDamage: 1,
+  opponentAttackDamage: 1,
 };
 
 export const AI_POSITIONING_CONFIG: AIPositioningConfig = {

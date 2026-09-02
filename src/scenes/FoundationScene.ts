@@ -42,6 +42,9 @@ export class FoundationScene extends Phaser.Scene {
   private opponentState!: FighterStateMachine;
   private opponentAttackHitbox!: AttackHitbox;
   private stateLabel!: Phaser.GameObjects.Text;
+  private playerHealthLabel!: Phaser.GameObjects.Text;
+  private playerHealth = 0;
+  private playerHitFlash?: Phaser.Time.TimerEvent;
   private facing: FacingDirection = "right";
   private opponentFacing: FacingDirection = "left";
 
@@ -114,7 +117,7 @@ export class FoundationScene extends Phaser.Scene {
       .setDepth(1000);
 
     this.add
-      .text(GAME_WIDTH / 2, 155, "M3.1b • AI attack", {
+      .text(GAME_WIDTH / 2, 155, "M3.2a • Player damage", {
         color: "#78f0be",
         fontFamily: "Arial, sans-serif",
         fontSize: "30px",
@@ -146,6 +149,21 @@ export class FoundationScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(1000);
+
+    this.playerHealth = Math.min(
+      PLAYER_CONFIG.maxHealth,
+      Math.max(0, PLAYER_CONFIG.initialHealth),
+    );
+    this.playerHealthLabel = this.add
+      .text(32, 32, "", {
+        color: "#f4fbff",
+        fontFamily: "monospace",
+        fontSize: "24px",
+        stroke: "#07111f",
+        strokeThickness: 6,
+      })
+      .setDepth(1000);
+    this.updatePlayerHealthLabel();
 
     this.player = this.add.rectangle(
       GAME_WIDTH / 2,
@@ -189,6 +207,7 @@ export class FoundationScene extends Phaser.Scene {
     this.player.setPosition(position.x, position.y);
     this.player.setScale(position.scale);
     this.player.setDepth(position.depth);
+    this.playerBody.updateFromGameObject();
 
     const opponentPosition = this.opponent.getPosition();
     const previousOpponentSnapshot = this.opponentState.getSnapshot();
@@ -243,6 +262,9 @@ export class FoundationScene extends Phaser.Scene {
         opponentSnapshot.state === "attack" &&
         opponentSnapshot.attackPhase === "active",
     });
+    if (this.opponentAttackHitbox.tryHit(this.player)) {
+      this.takePlayerDamage(COMBAT_CONFIG.opponentAttackDamage);
+    }
 
     const movementIntent = this.movementInput.read();
     const combatIntent = this.combatInput.read();
@@ -294,5 +316,26 @@ export class FoundationScene extends Phaser.Scene {
 
     this.player.setFillStyle(0x37d6ff);
     this.stateLabel.setText("СТОИТ");
+  }
+
+  private takePlayerDamage(amount: number): void {
+    this.playerHealth = Math.min(
+      PLAYER_CONFIG.maxHealth,
+      Math.max(0, this.playerHealth - amount),
+    );
+    this.updatePlayerHealthLabel();
+
+    this.playerHitFlash?.remove(false);
+    this.player.setStrokeStyle(12, 0xffffff);
+    this.playerHitFlash = this.time.delayedCall(PLAYER_CONFIG.hitFlashMs, () => {
+      this.player.setStrokeStyle(6, 0xf4fbff);
+      this.playerHitFlash = undefined;
+    });
+  }
+
+  private updatePlayerHealthLabel(): void {
+    this.playerHealthLabel.setText(
+      `PLAYER ${this.playerHealth}/${PLAYER_CONFIG.maxHealth}`,
+    );
   }
 }
