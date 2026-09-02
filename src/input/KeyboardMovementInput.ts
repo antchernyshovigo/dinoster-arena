@@ -8,7 +8,6 @@ export class KeyboardMovementInput {
   private readonly dKey: Phaser.Input.Keyboard.Key;
   private readonly wKey: Phaser.Input.Keyboard.Key;
   private readonly sKey: Phaser.Input.Keyboard.Key;
-  private readonly attackKey: Phaser.Input.Keyboard.Key;
 
   constructor(scene: Phaser.Scene) {
     const keyboard = scene.input.keyboard;
@@ -22,7 +21,6 @@ export class KeyboardMovementInput {
     this.dKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
     this.wKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
     this.sKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
-    this.attackKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
   }
 
   read(): MovementIntent {
@@ -34,7 +32,6 @@ export class KeyboardMovementInput {
     return {
       moveX: getAxisIntent(leftPressed, rightPressed),
       moveY: getAxisIntent(upPressed, downPressed),
-      attackPressed: Phaser.Input.Keyboard.JustDown(this.attackKey),
     };
   }
 }
