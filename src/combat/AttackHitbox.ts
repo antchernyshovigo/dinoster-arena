@@ -46,9 +46,11 @@ export class AttackHitbox {
   private readonly zone: Phaser.GameObjects.Zone;
   private readonly body: Phaser.Physics.Arcade.Body;
   private readonly debugFrame: Phaser.GameObjects.Rectangle;
+  private wasActive = false;
+  private hitConsumed = false;
 
   constructor(
-    scene: Phaser.Scene,
+    private readonly scene: Phaser.Scene,
     private readonly config: AttackHitboxConfig,
   ) {
     this.zone = scene.add.zone(0, 0, config.width, config.height);
@@ -67,6 +69,11 @@ export class AttackHitbox {
   }
 
   sync(pose: AttackHitboxPose): void {
+    if (pose.active && !this.wasActive) {
+      this.hitConsumed = false;
+    }
+    this.wasActive = pose.active;
+
     const direction = pose.facing === "right" ? 1 : -1;
     const width = this.config.width * pose.playerScale;
     const height = this.config.height * pose.playerScale;
@@ -84,5 +91,18 @@ export class AttackHitbox {
       .setDisplaySize(width, height)
       .setDepth(pose.playerDepth + 1)
       .setVisible(pose.active);
+  }
+
+  tryHit(target: Phaser.GameObjects.Zone): boolean {
+    if (!this.body.enable || this.hitConsumed) {
+      return false;
+    }
+
+    if (!this.scene.physics.overlap(this.zone, target)) {
+      return false;
+    }
+
+    this.hitConsumed = true;
+    return true;
   }
 }
