@@ -9,12 +9,15 @@ import { PLAYER_CONFIG } from "../data/player";
 import { clampActorToArena } from "../game/arenaPerspective";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/config";
 import { getMovementVelocity } from "../game/movement";
+import type { FighterIntent } from "../input/FighterIntent";
+import { KeyboardCombatInput } from "../input/KeyboardCombatInput";
 import { KeyboardMovementInput } from "../input/KeyboardMovementInput";
 
 export class FoundationScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
   private playerBody!: Phaser.Physics.Arcade.Body;
   private movementInput!: KeyboardMovementInput;
+  private combatInput!: KeyboardCombatInput;
   private fighterState!: FighterStateMachine;
   private stateLabel!: Phaser.GameObjects.Text;
 
@@ -135,6 +138,7 @@ export class FoundationScene extends Phaser.Scene {
     this.playerBody.setImmovable(true);
 
     this.movementInput = new KeyboardMovementInput(this);
+    this.combatInput = new KeyboardCombatInput(this);
     this.fighterState = new FighterStateMachine(PLAYER_CONFIG.attackTimings);
   }
 
@@ -150,7 +154,9 @@ export class FoundationScene extends Phaser.Scene {
     this.player.setScale(position.scale);
     this.player.setDepth(position.depth);
 
-    const intent = this.movementInput.read();
+    const movementIntent = this.movementInput.read();
+    const combatIntent = this.combatInput.read();
+    const intent: FighterIntent = { ...movementIntent, ...combatIntent };
     const snapshot = this.fighterState.update(intent, delta);
     const velocity =
       snapshot.state === "attack"

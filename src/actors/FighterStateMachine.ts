@@ -1,5 +1,5 @@
 import type { AttackTimings } from "../data/player";
-import type { MovementIntent } from "../input/MovementIntent";
+import type { FighterIntent } from "../input/FighterIntent";
 
 export type FighterState = "idle" | "move" | "attack";
 export type AttackPhase = "startup" | "active" | "recovery";
@@ -19,7 +19,7 @@ export class FighterStateMachine {
     this.attackTimings = attackTimings;
   }
 
-  update(intent: MovementIntent, deltaMs: number): FighterSnapshot {
+  update(intent: FighterIntent, deltaMs: number): FighterSnapshot {
     if (this.state === "attack") {
       this.updateAttack(intent, deltaMs);
     } else if (intent.attackPressed) {
@@ -40,7 +40,7 @@ export class FighterStateMachine {
     };
   }
 
-  private updateAttack(intent: MovementIntent, deltaMs: number): void {
+  private updateAttack(intent: FighterIntent, deltaMs: number): void {
     this.attackElapsedMs += deltaMs;
 
     const activeStartsAt = this.attackTimings.startupMs;
@@ -58,7 +58,7 @@ export class FighterStateMachine {
     }
   }
 
-  private hasMovement(intent: MovementIntent): boolean {
+  private hasMovement(intent: FighterIntent): boolean {
     return intent.moveX !== 0 || intent.moveY !== 0;
   }
 }
