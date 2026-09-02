@@ -42,6 +42,11 @@ export const PLAYER_ATTACK_HITBOX_CONFIG: AttackHitboxConfig = {
   debugColor: 0xff4d6d,
 };
 
+export const OPPONENT_ATTACK_HITBOX_CONFIG: AttackHitboxConfig = {
+  ...PLAYER_ATTACK_HITBOX_CONFIG,
+  debugColor: 0xffd166,
+};
+
 export class AttackHitbox {
   private readonly zone: Phaser.GameObjects.Zone;
   private readonly body: Phaser.Physics.Arcade.Body;

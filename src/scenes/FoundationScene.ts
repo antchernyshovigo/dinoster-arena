@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 
+import { OpponentCombatAI } from "../ai/OpponentCombatAI";
 import { PositioningAI } from "../ai/PositioningAI";
 import {
   FighterStateMachine,
@@ -9,6 +10,7 @@ import {
   AttackHitbox,
   type FacingDirection,
   getFacingDirection,
+  OPPONENT_ATTACK_HITBOX_CONFIG,
   PLAYER_ATTACK_HITBOX_CONFIG,
 } from "../combat/AttackHitbox";
 import { OpponentActor } from "../combat/OpponentActor";
@@ -16,6 +18,7 @@ import { ARENA_CONFIG } from "../data/arena";
 import {
   AI_POSITIONING_CONFIG,
   COMBAT_CONFIG,
+  OPPONENT_COMBAT_AI_CONFIG,
   OPPONENT_CONFIG,
 } from "../data/combat";
 import { PLAYER_CONFIG } from "../data/player";
@@ -34,9 +37,13 @@ export class FoundationScene extends Phaser.Scene {
   private fighterState!: FighterStateMachine;
   private attackHitbox!: AttackHitbox;
   private opponent!: OpponentActor;
-  private opponentAI!: PositioningAI;
+  private opponentPositioningAI!: PositioningAI;
+  private opponentCombatAI!: OpponentCombatAI;
+  private opponentState!: FighterStateMachine;
+  private opponentAttackHitbox!: AttackHitbox;
   private stateLabel!: Phaser.GameObjects.Text;
   private facing: FacingDirection = "right";
+  private opponentFacing: FacingDirection = "left";
 
   constructor() {
     super("foundation");
@@ -107,7 +114,7 @@ export class FoundationScene extends Phaser.Scene {
       .setDepth(1000);
 
     this.add
-      .text(GAME_WIDTH / 2, 155, "M3.1a • AI movement", {
+      .text(GAME_WIDTH / 2, 155, "M3.1b • AI attack", {
         color: "#78f0be",
         fontFamily: "Arial, sans-serif",
         fontSize: "30px",
@@ -162,7 +169,13 @@ export class FoundationScene extends Phaser.Scene {
       PLAYER_ATTACK_HITBOX_CONFIG,
     );
     this.opponent = new OpponentActor(this, OPPONENT_CONFIG, ARENA_CONFIG);
-    this.opponentAI = new PositioningAI(AI_POSITIONING_CONFIG);
+    this.opponentPositioningAI = new PositioningAI(AI_POSITIONING_CONFIG);
+    this.opponentCombatAI = new OpponentCombatAI(OPPONENT_COMBAT_AI_CONFIG);
+    this.opponentState = new FighterStateMachine(OPPONENT_CONFIG.attackTimings);
+    this.opponentAttackHitbox = new AttackHitbox(
+      this,
+      OPPONENT_ATTACK_HITBOX_CONFIG,
+    );
   }
 
   update(_time: number, delta: number): void {
@@ -178,18 +191,58 @@ export class FoundationScene extends Phaser.Scene {
     this.player.setDepth(position.depth);
 
     const opponentPosition = this.opponent.getPosition();
-    const opponentIntent = this.opponentAI.update({
-      playerX: position.x,
-      playerY: position.y,
-      opponentX: opponentPosition.x,
-      opponentY: opponentPosition.y,
-    });
-    const opponentVelocity = getMovementVelocity(
-      opponentIntent.moveX,
-      opponentIntent.moveY,
-      AI_POSITIONING_CONFIG.moveSpeed,
+    const previousOpponentSnapshot = this.opponentState.getSnapshot();
+    const opponentMovementIntent =
+      previousOpponentSnapshot.state === "attack"
+        ? { moveX: 0, moveY: 0 } as const
+        : this.opponentPositioningAI.update({
+            playerX: position.x,
+            playerY: position.y,
+            opponentX: opponentPosition.x,
+            opponentY: opponentPosition.y,
+          });
+    const opponentCombatIntent = this.opponentCombatAI.update(
+      {
+        playerX: position.x,
+        playerY: position.y,
+        opponentX: opponentPosition.x,
+        opponentY: opponentPosition.y,
+        isAttacking: previousOpponentSnapshot.state === "attack",
+      },
+      delta,
     );
+    if (previousOpponentSnapshot.state !== "attack") {
+      this.opponentFacing = getFacingDirection(
+        this.opponentFacing,
+        position.x - opponentPosition.x,
+      );
+    }
+    const opponentIntent: FighterIntent = {
+      ...opponentMovementIntent,
+      ...opponentCombatIntent,
+    };
+    const opponentSnapshot = this.opponentState.update(opponentIntent, delta);
+    const opponentVelocity =
+      opponentSnapshot.state === "attack"
+        ? { x: 0, y: 0 }
+        : getMovementVelocity(
+            opponentIntent.moveX,
+            opponentIntent.moveY,
+            AI_POSITIONING_CONFIG.moveSpeed,
+          );
     this.opponent.move(opponentVelocity.x, opponentVelocity.y, delta);
+    this.opponent.updateStatePresentation(opponentSnapshot);
+    const opponentPose = this.opponent.getPose();
+    this.opponentAttackHitbox.sync({
+      playerX: opponentPose.x,
+      playerY: opponentPose.y,
+      playerScale: opponentPose.scale,
+      playerDepth: opponentPose.depth,
+      facing: this.opponentFacing,
+      active:
+        opponentSnapshot.state === "attack" &&
+        opponentSnapshot.attackPhase === "active",
+    });
 
     const movementIntent = this.movementInput.read();
     const combatIntent = this.combatInput.read();
