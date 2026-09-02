@@ -3,6 +3,7 @@ export type AxisIntent = -1 | 0 | 1;
 export interface MovementIntent {
   readonly moveX: AxisIntent;
   readonly moveY: AxisIntent;
+  readonly attackPressed: boolean;
 }
 
 export function getAxisIntent(
