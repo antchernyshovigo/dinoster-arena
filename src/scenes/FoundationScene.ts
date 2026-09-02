@@ -10,7 +10,9 @@ import {
   getFacingDirection,
   PLAYER_ATTACK_HITBOX_CONFIG,
 } from "../combat/AttackHitbox";
+import { CombatDummy } from "../combat/CombatDummy";
 import { ARENA_CONFIG } from "../data/arena";
+import { COMBAT_CONFIG, DUMMY_CONFIG } from "../data/combat";
 import { PLAYER_CONFIG } from "../data/player";
 import { clampActorToArena } from "../game/arenaPerspective";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/config";
@@ -26,6 +28,7 @@ export class FoundationScene extends Phaser.Scene {
   private combatInput!: KeyboardCombatInput;
   private fighterState!: FighterStateMachine;
   private attackHitbox!: AttackHitbox;
+  private dummy!: CombatDummy;
   private stateLabel!: Phaser.GameObjects.Text;
   private facing: FacingDirection = "right";
 
@@ -98,7 +101,7 @@ export class FoundationScene extends Phaser.Scene {
       .setDepth(1000);
 
     this.add
-      .text(GAME_WIDTH / 2, 155, "M2.2 • Active hitbox", {
+      .text(GAME_WIDTH / 2, 155, "M2.3 • Combat dummy", {
         color: "#78f0be",
         fontFamily: "Arial, sans-serif",
         fontSize: "30px",
@@ -152,6 +155,7 @@ export class FoundationScene extends Phaser.Scene {
       this,
       PLAYER_ATTACK_HITBOX_CONFIG,
     );
+    this.dummy = new CombatDummy(this, DUMMY_CONFIG, ARENA_CONFIG);
   }
 
   update(_time: number, delta: number): void {
@@ -189,6 +193,9 @@ export class FoundationScene extends Phaser.Scene {
       facing: this.facing,
       active: snapshot.state === "attack" && snapshot.attackPhase === "active",
     });
+    if (this.attackHitbox.tryHit(this.dummy.hurtbox)) {
+      this.dummy.takeDamage(COMBAT_CONFIG.attackDamage);
+    }
   }
 
   private updateFighterPresentation(snapshot: FighterSnapshot): void {
