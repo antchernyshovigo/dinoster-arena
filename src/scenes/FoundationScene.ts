@@ -4,6 +4,12 @@ import {
   FighterStateMachine,
   type FighterSnapshot,
 } from "../actors/FighterStateMachine";
+import {
+  AttackHitbox,
+  type FacingDirection,
+  getFacingDirection,
+  PLAYER_ATTACK_HITBOX_CONFIG,
+} from "../combat/AttackHitbox";
 import { ARENA_CONFIG } from "../data/arena";
 import { PLAYER_CONFIG } from "../data/player";
 import { clampActorToArena } from "../game/arenaPerspective";
@@ -19,7 +25,9 @@ export class FoundationScene extends Phaser.Scene {
   private movementInput!: KeyboardMovementInput;
   private combatInput!: KeyboardCombatInput;
   private fighterState!: FighterStateMachine;
+  private attackHitbox!: AttackHitbox;
   private stateLabel!: Phaser.GameObjects.Text;
+  private facing: FacingDirection = "right";
 
   constructor() {
     super("foundation");
@@ -90,7 +98,7 @@ export class FoundationScene extends Phaser.Scene {
       .setDepth(1000);
 
     this.add
-      .text(GAME_WIDTH / 2, 155, "M2.1 • Состояния бойца", {
+      .text(GAME_WIDTH / 2, 155, "M2.2 • Active hitbox", {
         color: "#78f0be",
         fontFamily: "Arial, sans-serif",
         fontSize: "30px",
@@ -140,6 +148,10 @@ export class FoundationScene extends Phaser.Scene {
     this.movementInput = new KeyboardMovementInput(this);
     this.combatInput = new KeyboardCombatInput(this);
     this.fighterState = new FighterStateMachine(PLAYER_CONFIG.attackTimings);
+    this.attackHitbox = new AttackHitbox(
+      this,
+      PLAYER_ATTACK_HITBOX_CONFIG,
+    );
   }
 
   update(_time: number, delta: number): void {
@@ -158,12 +170,24 @@ export class FoundationScene extends Phaser.Scene {
     const combatIntent = this.combatInput.read();
     const intent: FighterIntent = { ...movementIntent, ...combatIntent };
     const snapshot = this.fighterState.update(intent, delta);
+    if (snapshot.state !== "attack" && intent.moveX !== 0) {
+      this.facing = getFacingDirection(this.facing, intent.moveX);
+    }
+
     const velocity =
       snapshot.state === "attack"
         ? { x: 0, y: 0 }
         : getMovementVelocity(intent.moveX, intent.moveY, PLAYER_CONFIG.moveSpeed);
     this.playerBody.setVelocity(velocity.x, velocity.y);
     this.updateFighterPresentation(snapshot);
+    this.attackHitbox.sync({
+      playerX: position.x,
+      playerY: position.y,
+      playerScale: position.scale,
+      playerDepth: position.depth,
+      facing: this.facing,
+      active: snapshot.state === "attack" && snapshot.attackPhase === "active",
+    });
   }
 
   private updateFighterPresentation(snapshot: FighterSnapshot): void {
