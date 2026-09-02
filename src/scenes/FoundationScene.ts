@@ -169,11 +169,12 @@ export class FoundationScene extends Phaser.Scene {
     const movementIntent = this.movementInput.read();
     const combatIntent = this.combatInput.read();
     const intent: FighterIntent = { ...movementIntent, ...combatIntent };
-    const snapshot = this.fighterState.update(intent, delta);
-    if (snapshot.state !== "attack" && intent.moveX !== 0) {
+    const previousSnapshot = this.fighterState.getSnapshot();
+    if (previousSnapshot.state !== "attack" && intent.moveX !== 0) {
       this.facing = getFacingDirection(this.facing, intent.moveX);
     }
 
+    const snapshot = this.fighterState.update(intent, delta);
     const velocity =
       snapshot.state === "attack"
         ? { x: 0, y: 0 }
