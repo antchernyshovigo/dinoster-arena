@@ -6,6 +6,8 @@ export interface AIPositioningInput {
   readonly playerY: number;
   readonly opponentX: number;
   readonly opponentY: number;
+  readonly playerIsKo: boolean;
+  readonly opponentIsKo: boolean;
 }
 
 type HorizontalMode = "approach" | "hold" | "retreat";
@@ -16,6 +18,10 @@ export class PositioningAI {
   constructor(private readonly config: AIPositioningConfig) {}
 
   update(input: AIPositioningInput): MovementIntent {
+    if (input.playerIsKo || input.opponentIsKo) {
+      return { moveX: 0, moveY: 0 };
+    }
+
     const deltaX = input.playerX - input.opponentX;
     const distanceX = Math.abs(deltaX);
     this.updateHorizontalMode(distanceX);

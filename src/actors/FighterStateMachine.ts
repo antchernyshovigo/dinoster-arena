@@ -1,7 +1,7 @@
 import type { AttackTimings } from "../data/player";
 import type { FighterIntent } from "../input/FighterIntent";
 
-export type FighterState = "idle" | "move" | "attack";
+export type FighterState = "idle" | "move" | "attack" | "hit" | "ko";
 export type AttackPhase = "startup" | "active" | "recovery";
 
 export interface FighterSnapshot {
@@ -14,13 +14,23 @@ export class FighterStateMachine {
   private state: FighterState = "idle";
   private attackPhase: AttackPhase | null = null;
   private attackElapsedMs = 0;
+  private hitElapsedMs = 0;
 
-  constructor(attackTimings: AttackTimings) {
+  constructor(
+    attackTimings: AttackTimings,
+    private readonly hitDurationMs: number,
+  ) {
     this.attackTimings = attackTimings;
   }
 
   update(intent: FighterIntent, deltaMs: number): FighterSnapshot {
-    if (this.state === "attack") {
+    if (this.state === "ko") {
+      return this.getSnapshot();
+    }
+
+    if (this.state === "hit") {
+      this.updateHit(intent, deltaMs);
+    } else if (this.state === "attack") {
       this.updateAttack(intent, deltaMs);
     } else if (intent.attackPressed) {
       this.state = "attack";
@@ -28,6 +38,36 @@ export class FighterStateMachine {
       this.attackElapsedMs = 0;
     } else {
       this.state = this.hasMovement(intent) ? "move" : "idle";
+    }
+
+    return this.getSnapshot();
+  }
+
+  enterHit(): FighterSnapshot {
+    if (this.state !== "ko") {
+      this.state = "hit";
+      this.attackPhase = null;
+      this.attackElapsedMs = 0;
+      this.hitElapsedMs = 0;
+    }
+
+    return this.getSnapshot();
+  }
+
+  enterKo(): FighterSnapshot {
+    this.state = "ko";
+    this.attackPhase = null;
+    this.attackElapsedMs = 0;
+    this.hitElapsedMs = 0;
+    return this.getSnapshot();
+  }
+
+  stop(): FighterSnapshot {
+    if (this.state !== "ko") {
+      this.state = "idle";
+      this.attackPhase = null;
+      this.attackElapsedMs = 0;
+      this.hitElapsedMs = 0;
     }
 
     return this.getSnapshot();
@@ -55,6 +95,15 @@ export class FighterStateMachine {
       this.attackPhase = "recovery";
     } else if (this.attackElapsedMs >= activeStartsAt) {
       this.attackPhase = "active";
+    }
+  }
+
+  private updateHit(intent: FighterIntent, deltaMs: number): void {
+    this.hitElapsedMs += deltaMs;
+
+    if (this.hitElapsedMs >= this.hitDurationMs) {
+      this.state = this.hasMovement(intent) ? "move" : "idle";
+      this.hitElapsedMs = 0;
     }
   }
 

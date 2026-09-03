@@ -98,6 +98,12 @@ export class AttackHitbox {
       .setVisible(pose.active);
   }
 
+  deactivate(): void {
+    this.wasActive = false;
+    this.body.enable = false;
+    this.debugFrame.setVisible(false);
+  }
+
   tryHit(target: Phaser.Types.Physics.Arcade.ArcadeColliderType): boolean {
     if (!this.body.enable || this.hitConsumed) {
       return false;

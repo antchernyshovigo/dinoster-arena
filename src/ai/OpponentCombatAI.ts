@@ -7,6 +7,9 @@ export interface OpponentCombatAIInput {
   readonly opponentX: number;
   readonly opponentY: number;
   readonly isAttacking: boolean;
+  readonly isHit: boolean;
+  readonly playerIsKo: boolean;
+  readonly opponentIsKo: boolean;
 }
 
 export class OpponentCombatAI {
@@ -19,7 +22,13 @@ export class OpponentCombatAI {
   update(input: OpponentCombatAIInput, deltaMs: number): CombatIntent {
     this.elapsedSinceAttackMs += deltaMs;
 
-    if (input.isAttacking || !this.canAttack(input)) {
+    if (
+      input.isAttacking ||
+      input.isHit ||
+      input.playerIsKo ||
+      input.opponentIsKo ||
+      !this.canAttack(input)
+    ) {
       return { attackPressed: false };
     }
 
