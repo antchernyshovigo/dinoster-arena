@@ -207,7 +207,6 @@ export class FoundationScene extends Phaser.Scene {
     this.player.setPosition(position.x, position.y);
     this.player.setScale(position.scale);
     this.player.setDepth(position.depth);
-    this.playerBody.updateFromGameObject();
 
     const opponentPosition = this.opponent.getPosition();
     const previousOpponentSnapshot = this.opponentState.getSnapshot();
