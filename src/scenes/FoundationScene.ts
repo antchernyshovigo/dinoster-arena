@@ -27,15 +27,22 @@ import { PLAYER_CONFIG } from "../data/player";
 import { clampActorToArena } from "../game/arenaPerspective";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/config";
 import { getMovementVelocity } from "../game/movement";
+import {
+  RoundController,
+  type KnockedOutFighter,
+} from "../game/RoundController";
 import type { FighterIntent } from "../input/FighterIntent";
 import { KeyboardCombatInput } from "../input/KeyboardCombatInput";
 import { KeyboardMovementInput } from "../input/KeyboardMovementInput";
+import { KeyboardRestartInput } from "../input/KeyboardRestartInput";
+import { RoundResultOverlay } from "../ui/RoundResultOverlay";
 
 export class FoundationScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
   private playerBody!: Phaser.Physics.Arcade.Body;
   private movementInput!: KeyboardMovementInput;
   private combatInput!: KeyboardCombatInput;
+  private restartInput!: KeyboardRestartInput;
   private fighterState!: FighterStateMachine;
   private attackHitbox!: AttackHitbox;
   private opponent!: OpponentActor;
@@ -45,8 +52,11 @@ export class FoundationScene extends Phaser.Scene {
   private opponentAttackHitbox!: AttackHitbox;
   private stateLabel!: Phaser.GameObjects.Text;
   private playerHealthLabel!: Phaser.GameObjects.Text;
+  private roundController!: RoundController;
+  private roundResultOverlay!: RoundResultOverlay;
   private playerHealth = 0;
   private playerHitFlash?: Phaser.Time.TimerEvent;
+  private restartRequested = false;
   private facing: FacingDirection = "right";
   private opponentFacing: FacingDirection = "left";
 
@@ -55,6 +65,12 @@ export class FoundationScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.roundController = new RoundController();
+    this.restartRequested = false;
+    this.playerHitFlash = undefined;
+    this.facing = "right";
+    this.opponentFacing = "left";
+
     this.physics.world.setBounds(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
     const background = this.add.graphics();
@@ -119,7 +135,7 @@ export class FoundationScene extends Phaser.Scene {
       .setDepth(1000);
 
     this.add
-      .text(GAME_WIDTH / 2, 155, "M3.2b-1 • Hit and KO", {
+      .text(GAME_WIDTH / 2, 155, "M3.2b-2 • Round result", {
         color: "#78f0be",
         fontFamily: "Arial, sans-serif",
         fontSize: "30px",
@@ -183,6 +199,7 @@ export class FoundationScene extends Phaser.Scene {
 
     this.movementInput = new KeyboardMovementInput(this);
     this.combatInput = new KeyboardCombatInput(this);
+    this.restartInput = new KeyboardRestartInput(this);
     this.fighterState = new FighterStateMachine(
       PLAYER_CONFIG.attackTimings,
       FIGHTER_STATE_CONFIG.hitDurationMs,
@@ -202,9 +219,20 @@ export class FoundationScene extends Phaser.Scene {
       this,
       OPPONENT_ATTACK_HITBOX_CONFIG,
     );
+    this.roundResultOverlay = new RoundResultOverlay(this, () => {
+      this.requestRestart();
+    });
   }
 
   update(_time: number, delta: number): void {
+    const restartIntent = this.restartInput.read();
+    if (!this.roundController.isFighting()) {
+      if (restartIntent.restartPressed) {
+        this.requestRestart();
+      }
+      return;
+    }
+
     const position = clampActorToArena(
       this.player.x,
       this.player.y,
@@ -281,6 +309,9 @@ export class FoundationScene extends Phaser.Scene {
     if (this.opponentAttackHitbox.tryHit(this.player)) {
       this.takePlayerDamage(COMBAT_CONFIG.opponentAttackDamage);
     }
+    if (!this.roundController.isFighting()) {
+      return;
+    }
 
     const movementIntent = this.movementInput.read();
     const combatIntent = this.combatInput.read();
@@ -354,6 +385,10 @@ export class FoundationScene extends Phaser.Scene {
   }
 
   private takePlayerDamage(amount: number): void {
+    if (!this.roundController.isFighting()) {
+      return;
+    }
+
     const result = applyDamage(
       this.playerHealth,
       PLAYER_CONFIG.maxHealth,
@@ -381,11 +416,15 @@ export class FoundationScene extends Phaser.Scene {
     this.updateFighterPresentation(snapshot);
 
     if (snapshot.state === "ko") {
-      this.stopCombatAfterKo();
+      this.finishRound("player");
     }
   }
 
   private takeOpponentDamage(amount: number): void {
+    if (!this.roundController.isFighting()) {
+      return;
+    }
+
     const result = this.opponent.takeDamage(amount);
     if (!result.damageApplied) {
       return;
@@ -399,8 +438,14 @@ export class FoundationScene extends Phaser.Scene {
     this.opponent.updateStatePresentation(snapshot);
 
     if (snapshot.state === "ko") {
-      this.stopCombatAfterKo();
+      this.finishRound("opponent");
     }
+  }
+
+  private finishRound(knockedOut: KnockedOutFighter): void {
+    const roundState = this.roundController.finishForKnockout(knockedOut);
+    this.stopCombatAfterKo();
+    this.roundResultOverlay.show(roundState);
   }
 
   private stopCombatAfterKo(): void {
@@ -412,6 +457,15 @@ export class FoundationScene extends Phaser.Scene {
     this.opponentAttackHitbox.deactivate();
     this.updateFighterPresentation(playerSnapshot);
     this.opponent.updateStatePresentation(opponentSnapshot);
+  }
+
+  private requestRestart(): void {
+    if (this.roundController.isFighting() || this.restartRequested) {
+      return;
+    }
+
+    this.restartRequested = true;
+    this.scene.restart();
   }
 
   private updatePlayerHealthLabel(): void {
