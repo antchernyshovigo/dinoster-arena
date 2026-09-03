@@ -98,7 +98,7 @@ export class AttackHitbox {
       .setVisible(pose.active);
   }
 
-  tryHit(target: Phaser.GameObjects.Zone): boolean {
+  tryHit(target: Phaser.Types.Physics.Arcade.ArcadeColliderType): boolean {
     if (!this.body.enable || this.hitConsumed) {
       return false;
     }
