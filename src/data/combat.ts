@@ -6,15 +6,19 @@ export interface OpponentConfig {
   readonly width: number;
   readonly height: number;
   readonly maxHealth: number;
-  readonly hitFlashMs: number;
   readonly color: number;
   readonly hitColor: number;
+  readonly koColor: number;
   readonly attackTimings: AttackTimings;
 }
 
 export interface CombatConfig {
   readonly attackDamage: number;
   readonly opponentAttackDamage: number;
+}
+
+export interface FighterStateConfig {
+  readonly hitDurationMs: number;
 }
 
 export interface AIPositioningConfig {
@@ -38,9 +42,9 @@ export const OPPONENT_CONFIG: OpponentConfig = {
   width: 80,
   height: 108,
   maxHealth: 5,
-  hitFlashMs: 120,
   color: 0xb86cff,
   hitColor: 0xffffff,
+  koColor: 0x4b5563,
   attackTimings: {
     startupMs: 180,
     activeMs: 100,
@@ -51,6 +55,10 @@ export const OPPONENT_CONFIG: OpponentConfig = {
 export const COMBAT_CONFIG: CombatConfig = {
   attackDamage: 1,
   opponentAttackDamage: 1,
+};
+
+export const FIGHTER_STATE_CONFIG: FighterStateConfig = {
+  hitDurationMs: 250,
 };
 
 export const AI_POSITIONING_CONFIG: AIPositioningConfig = {

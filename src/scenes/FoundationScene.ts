@@ -14,10 +14,12 @@ import {
   PLAYER_ATTACK_HITBOX_CONFIG,
 } from "../combat/AttackHitbox";
 import { OpponentActor } from "../combat/OpponentActor";
+import { applyDamage } from "../combat/health";
 import { ARENA_CONFIG } from "../data/arena";
 import {
   AI_POSITIONING_CONFIG,
   COMBAT_CONFIG,
+  FIGHTER_STATE_CONFIG,
   OPPONENT_COMBAT_AI_CONFIG,
   OPPONENT_CONFIG,
 } from "../data/combat";
@@ -117,7 +119,7 @@ export class FoundationScene extends Phaser.Scene {
       .setDepth(1000);
 
     this.add
-      .text(GAME_WIDTH / 2, 155, "M3.2a • Player damage", {
+      .text(GAME_WIDTH / 2, 155, "M3.2b-1 • Hit and KO", {
         color: "#78f0be",
         fontFamily: "Arial, sans-serif",
         fontSize: "30px",
@@ -181,7 +183,10 @@ export class FoundationScene extends Phaser.Scene {
 
     this.movementInput = new KeyboardMovementInput(this);
     this.combatInput = new KeyboardCombatInput(this);
-    this.fighterState = new FighterStateMachine(PLAYER_CONFIG.attackTimings);
+    this.fighterState = new FighterStateMachine(
+      PLAYER_CONFIG.attackTimings,
+      FIGHTER_STATE_CONFIG.hitDurationMs,
+    );
     this.attackHitbox = new AttackHitbox(
       this,
       PLAYER_ATTACK_HITBOX_CONFIG,
@@ -189,7 +194,10 @@ export class FoundationScene extends Phaser.Scene {
     this.opponent = new OpponentActor(this, OPPONENT_CONFIG, ARENA_CONFIG);
     this.opponentPositioningAI = new PositioningAI(AI_POSITIONING_CONFIG);
     this.opponentCombatAI = new OpponentCombatAI(OPPONENT_COMBAT_AI_CONFIG);
-    this.opponentState = new FighterStateMachine(OPPONENT_CONFIG.attackTimings);
+    this.opponentState = new FighterStateMachine(
+      OPPONENT_CONFIG.attackTimings,
+      FIGHTER_STATE_CONFIG.hitDurationMs,
+    );
     this.opponentAttackHitbox = new AttackHitbox(
       this,
       OPPONENT_ATTACK_HITBOX_CONFIG,
@@ -209,6 +217,7 @@ export class FoundationScene extends Phaser.Scene {
     this.player.setDepth(position.depth);
 
     const opponentPosition = this.opponent.getPosition();
+    const playerStartSnapshot = this.fighterState.getSnapshot();
     const previousOpponentSnapshot = this.opponentState.getSnapshot();
     const opponentMovementIntent =
       previousOpponentSnapshot.state === "attack"
@@ -218,6 +227,8 @@ export class FoundationScene extends Phaser.Scene {
             playerY: position.y,
             opponentX: opponentPosition.x,
             opponentY: opponentPosition.y,
+            playerIsKo: playerStartSnapshot.state === "ko",
+            opponentIsKo: previousOpponentSnapshot.state === "ko",
           });
     const opponentCombatIntent = this.opponentCombatAI.update(
       {
@@ -226,10 +237,16 @@ export class FoundationScene extends Phaser.Scene {
         opponentX: opponentPosition.x,
         opponentY: opponentPosition.y,
         isAttacking: previousOpponentSnapshot.state === "attack",
+        isHit: previousOpponentSnapshot.state === "hit",
+        playerIsKo: playerStartSnapshot.state === "ko",
+        opponentIsKo: previousOpponentSnapshot.state === "ko",
       },
       delta,
     );
-    if (previousOpponentSnapshot.state !== "attack") {
+    if (
+      previousOpponentSnapshot.state === "idle" ||
+      previousOpponentSnapshot.state === "move"
+    ) {
       this.opponentFacing = getFacingDirection(
         this.opponentFacing,
         position.x - opponentPosition.x,
@@ -241,13 +258,13 @@ export class FoundationScene extends Phaser.Scene {
     };
     const opponentSnapshot = this.opponentState.update(opponentIntent, delta);
     const opponentVelocity =
-      opponentSnapshot.state === "attack"
-        ? { x: 0, y: 0 }
-        : getMovementVelocity(
+      opponentSnapshot.state === "idle" || opponentSnapshot.state === "move"
+        ? getMovementVelocity(
             opponentIntent.moveX,
             opponentIntent.moveY,
             AI_POSITIONING_CONFIG.moveSpeed,
-          );
+          )
+        : { x: 0, y: 0 };
     this.opponent.move(opponentVelocity.x, opponentVelocity.y, delta);
     this.opponent.updateStatePresentation(opponentSnapshot);
     const opponentPose = this.opponent.getPose();
@@ -269,15 +286,22 @@ export class FoundationScene extends Phaser.Scene {
     const combatIntent = this.combatInput.read();
     const intent: FighterIntent = { ...movementIntent, ...combatIntent };
     const previousSnapshot = this.fighterState.getSnapshot();
-    if (previousSnapshot.state !== "attack" && intent.moveX !== 0) {
+    if (
+      (previousSnapshot.state === "idle" || previousSnapshot.state === "move") &&
+      intent.moveX !== 0
+    ) {
       this.facing = getFacingDirection(this.facing, intent.moveX);
     }
 
     const snapshot = this.fighterState.update(intent, delta);
     const velocity =
-      snapshot.state === "attack"
-        ? { x: 0, y: 0 }
-        : getMovementVelocity(intent.moveX, intent.moveY, PLAYER_CONFIG.moveSpeed);
+      snapshot.state === "idle" || snapshot.state === "move"
+        ? getMovementVelocity(
+            intent.moveX,
+            intent.moveY,
+            PLAYER_CONFIG.moveSpeed,
+          )
+        : { x: 0, y: 0 };
     this.playerBody.setVelocity(velocity.x, velocity.y);
     this.updateFighterPresentation(snapshot);
     this.attackHitbox.sync({
@@ -289,11 +313,23 @@ export class FoundationScene extends Phaser.Scene {
       active: snapshot.state === "attack" && snapshot.attackPhase === "active",
     });
     if (this.attackHitbox.tryHit(this.opponent.hurtbox)) {
-      this.opponent.takeDamage(COMBAT_CONFIG.attackDamage);
+      this.takeOpponentDamage(COMBAT_CONFIG.attackDamage);
     }
   }
 
   private updateFighterPresentation(snapshot: FighterSnapshot): void {
+    if (snapshot.state === "ko") {
+      this.player.setFillStyle(0x4b5563);
+      this.stateLabel.setText("KO");
+      return;
+    }
+
+    if (snapshot.state === "hit") {
+      this.player.setFillStyle(0xff4d6d);
+      this.stateLabel.setText("HIT");
+      return;
+    }
+
     if (snapshot.state === "attack") {
       const phaseLabels = {
         startup: "АТАКА • ПОДГОТОВКА",
@@ -318,10 +354,16 @@ export class FoundationScene extends Phaser.Scene {
   }
 
   private takePlayerDamage(amount: number): void {
-    this.playerHealth = Math.min(
+    const result = applyDamage(
+      this.playerHealth,
       PLAYER_CONFIG.maxHealth,
-      Math.max(0, this.playerHealth - amount),
+      amount,
     );
+    if (!result.damageApplied) {
+      return;
+    }
+
+    this.playerHealth = result.remainingHealth;
     this.updatePlayerHealthLabel();
 
     this.playerHitFlash?.remove(false);
@@ -330,6 +372,46 @@ export class FoundationScene extends Phaser.Scene {
       this.player.setStrokeStyle(6, 0xf4fbff);
       this.playerHitFlash = undefined;
     });
+
+    const snapshot =
+      this.playerHealth === 0
+        ? this.fighterState.enterKo()
+        : this.fighterState.enterHit();
+    this.attackHitbox.deactivate();
+    this.updateFighterPresentation(snapshot);
+
+    if (snapshot.state === "ko") {
+      this.stopCombatAfterKo();
+    }
+  }
+
+  private takeOpponentDamage(amount: number): void {
+    const result = this.opponent.takeDamage(amount);
+    if (!result.damageApplied) {
+      return;
+    }
+
+    const snapshot =
+      result.remainingHealth === 0
+        ? this.opponentState.enterKo()
+        : this.opponentState.enterHit();
+    this.opponentAttackHitbox.deactivate();
+    this.opponent.updateStatePresentation(snapshot);
+
+    if (snapshot.state === "ko") {
+      this.stopCombatAfterKo();
+    }
+  }
+
+  private stopCombatAfterKo(): void {
+    const playerSnapshot = this.fighterState.stop();
+    const opponentSnapshot = this.opponentState.stop();
+
+    this.playerBody.setVelocity(0, 0);
+    this.attackHitbox.deactivate();
+    this.opponentAttackHitbox.deactivate();
+    this.updateFighterPresentation(playerSnapshot);
+    this.opponent.updateStatePresentation(opponentSnapshot);
   }
 
   private updatePlayerHealthLabel(): void {

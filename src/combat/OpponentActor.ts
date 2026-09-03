@@ -4,6 +4,7 @@ import type { FighterSnapshot } from "../actors/FighterStateMachine";
 import type { ArenaConfig } from "../data/arena";
 import type { OpponentConfig } from "../data/combat";
 import { clampActorToArena } from "../game/arenaPerspective";
+import { applyDamage, type DamageResult } from "./health";
 
 export class OpponentActor {
   readonly hurtbox: Phaser.GameObjects.Zone;
@@ -14,7 +15,6 @@ export class OpponentActor {
   private health: number;
   private pose: { x: number; y: number; scale: number; depth: number };
   private stateText = "IDLE";
-  private hitFlash?: Phaser.Time.TimerEvent;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -78,23 +78,29 @@ export class OpponentActor {
     this.updateHealthLabel();
   }
 
-  takeDamage(amount: number): void {
-    this.health = Math.max(0, this.health - amount);
-    this.updateHealthLabel();
+  takeDamage(amount: number): DamageResult {
+    const result = applyDamage(this.health, this.config.maxHealth, amount);
+    if (result.damageApplied) {
+      this.health = result.remainingHealth;
+      this.updateHealthLabel();
+    }
 
-    this.hitFlash?.remove(false);
-    this.visual.setFillStyle(this.config.hitColor);
-    this.hitFlash = this.scene.time.delayedCall(this.config.hitFlashMs, () => {
-      this.visual.setFillStyle(this.config.color);
-      this.hitFlash = undefined;
-    });
+    return result;
   }
 
   updateStatePresentation(snapshot: FighterSnapshot): void {
-    if (snapshot.state === "attack") {
+    if (snapshot.state === "ko") {
+      this.stateText = "KO";
+      this.visual.setFillStyle(this.config.koColor);
+    } else if (snapshot.state === "hit") {
+      this.stateText = "HIT";
+      this.visual.setFillStyle(this.config.hitColor);
+    } else if (snapshot.state === "attack") {
       this.stateText = `ATTACK ${snapshot.attackPhase ?? "startup"}`.toUpperCase();
+      this.visual.setFillStyle(this.config.color);
     } else {
       this.stateText = snapshot.state.toUpperCase();
+      this.visual.setFillStyle(this.config.color);
     }
     this.updateHealthLabel();
   }
