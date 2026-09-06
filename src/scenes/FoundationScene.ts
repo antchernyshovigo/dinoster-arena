@@ -24,6 +24,10 @@ import {
   OPPONENT_CONFIG,
 } from "../data/combat";
 import { PLAYER_CONFIG } from "../data/player";
+import {
+  TOUCH_ATTACK_CONFIG,
+  TOUCH_MOVEMENT_CONFIG,
+} from "../data/touchControls";
 import { clampActorToArena } from "../game/arenaPerspective";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/config";
 import { getMovementVelocity } from "../game/movement";
@@ -31,17 +35,23 @@ import {
   RoundController,
   type KnockedOutFighter,
 } from "../game/RoundController";
+import type { CombatIntent } from "../input/CombatIntent";
 import type { FighterIntent } from "../input/FighterIntent";
 import { KeyboardCombatInput } from "../input/KeyboardCombatInput";
 import { KeyboardMovementInput } from "../input/KeyboardMovementInput";
 import { KeyboardRestartInput } from "../input/KeyboardRestartInput";
+import { getActiveMovementIntent } from "../input/MovementIntent";
+import { TouchCombatInput } from "../input/TouchCombatInput";
+import { TouchMovementInput } from "../input/TouchMovementInput";
 import { RoundResultOverlay } from "../ui/RoundResultOverlay";
 
 export class FoundationScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
   private playerBody!: Phaser.Physics.Arcade.Body;
-  private movementInput!: KeyboardMovementInput;
-  private combatInput!: KeyboardCombatInput;
+  private keyboardMovementInput!: KeyboardMovementInput;
+  private touchMovementInput!: TouchMovementInput;
+  private keyboardCombatInput!: KeyboardCombatInput;
+  private touchCombatInput!: TouchCombatInput;
   private restartInput!: KeyboardRestartInput;
   private fighterState!: FighterStateMachine;
   private attackHitbox!: AttackHitbox;
@@ -135,7 +145,7 @@ export class FoundationScene extends Phaser.Scene {
       .setDepth(1000);
 
     this.add
-      .text(GAME_WIDTH / 2, 155, "M3.2b-2 • Round result", {
+      .text(GAME_WIDTH / 2, 155, "M4.1 • Touch controls", {
         color: "#78f0be",
         fontFamily: "Arial, sans-serif",
         fontSize: "30px",
@@ -197,8 +207,13 @@ export class FoundationScene extends Phaser.Scene {
     this.playerBody.setCollideWorldBounds(true);
     this.playerBody.setImmovable(true);
 
-    this.movementInput = new KeyboardMovementInput(this);
-    this.combatInput = new KeyboardCombatInput(this);
+    this.keyboardMovementInput = new KeyboardMovementInput(this);
+    this.touchMovementInput = new TouchMovementInput(
+      this,
+      TOUCH_MOVEMENT_CONFIG,
+    );
+    this.keyboardCombatInput = new KeyboardCombatInput(this);
+    this.touchCombatInput = new TouchCombatInput(this, TOUCH_ATTACK_CONFIG);
     this.restartInput = new KeyboardRestartInput(this);
     this.fighterState = new FighterStateMachine(
       PLAYER_CONFIG.attackTimings,
@@ -313,8 +328,13 @@ export class FoundationScene extends Phaser.Scene {
       return;
     }
 
-    const movementIntent = this.movementInput.read();
-    const combatIntent = this.combatInput.read();
+    const keyboardMovementIntent = this.keyboardMovementInput.read();
+    const touchMovementIntent = this.touchMovementInput.read();
+    const movementIntent = getActiveMovementIntent(
+      keyboardMovementIntent,
+      touchMovementIntent,
+    );
+    const combatIntent = this.getCombatIntent();
     const intent: FighterIntent = { ...movementIntent, ...combatIntent };
     const previousSnapshot = this.fighterState.getSnapshot();
     if (
@@ -445,7 +465,19 @@ export class FoundationScene extends Phaser.Scene {
   private finishRound(knockedOut: KnockedOutFighter): void {
     const roundState = this.roundController.finishForKnockout(knockedOut);
     this.stopCombatAfterKo();
+    this.touchMovementInput.setEnabled(false);
+    this.touchCombatInput.setEnabled(false);
     this.roundResultOverlay.show(roundState);
+  }
+
+  private getCombatIntent(): CombatIntent {
+    const keyboardIntent = this.keyboardCombatInput.read();
+    const touchIntent = this.touchCombatInput.read();
+
+    return {
+      attackPressed:
+        keyboardIntent.attackPressed || touchIntent.attackPressed,
+    };
   }
 
   private stopCombatAfterKo(): void {
