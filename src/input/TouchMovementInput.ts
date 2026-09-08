@@ -52,11 +52,16 @@ export class TouchMovementInput {
     scene.input.on("pointermove", this.handlePointerMove, this);
     scene.input.on("pointerup", this.handlePointerUp, this);
     scene.input.on("pointerupoutside", this.handlePointerUp, this);
+    scene.game.events.on(Phaser.Core.Events.BLUR, this.reset, this);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
   }
 
   read(): MovementIntent {
     return this.intent;
+  }
+
+  isActive(): boolean {
+    return this.activePointerId !== null;
   }
 
   setEnabled(enabled: boolean): void {
@@ -129,6 +134,7 @@ export class TouchMovementInput {
     this.scene.input.off("pointermove", this.handlePointerMove, this);
     this.scene.input.off("pointerup", this.handlePointerUp, this);
     this.scene.input.off("pointerupoutside", this.handlePointerUp, this);
+    this.scene.game.events.off(Phaser.Core.Events.BLUR, this.reset, this);
     this.base.removeAllListeners();
   }
 }
