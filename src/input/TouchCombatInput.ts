@@ -43,6 +43,7 @@ export class TouchCombatInput {
     this.button.on("pointerdown", this.handlePointerDown, this);
     scene.input.on("pointerup", this.handlePointerUp, this);
     scene.input.on("pointerupoutside", this.handlePointerUp, this);
+    scene.game.events.on(Phaser.Core.Events.BLUR, this.reset, this);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
   }
 
@@ -99,6 +100,7 @@ export class TouchCombatInput {
   private destroy(): void {
     this.scene.input.off("pointerup", this.handlePointerUp, this);
     this.scene.input.off("pointerupoutside", this.handlePointerUp, this);
+    this.scene.game.events.off(Phaser.Core.Events.BLUR, this.reset, this);
     this.button.removeAllListeners();
   }
 }

@@ -145,7 +145,7 @@ export class FoundationScene extends Phaser.Scene {
       .setDepth(1000);
 
     this.add
-      .text(GAME_WIDTH / 2, 155, "M4.1 • Touch controls", {
+      .text(GAME_WIDTH / 2, 155, "M4.2 • Multi-touch", {
         color: "#78f0be",
         fontFamily: "Arial, sans-serif",
         fontSize: "30px",
@@ -333,6 +333,7 @@ export class FoundationScene extends Phaser.Scene {
     const movementIntent = getActiveMovementIntent(
       keyboardMovementIntent,
       touchMovementIntent,
+      this.touchMovementInput.isActive(),
     );
     const combatIntent = this.getCombatIntent();
     const intent: FighterIntent = { ...movementIntent, ...combatIntent };

@@ -19,10 +19,9 @@ export function getAxisIntent(
 export function getActiveMovementIntent(
   keyboardIntent: MovementIntent,
   touchIntent: MovementIntent,
+  touchIsActive: boolean,
 ): MovementIntent {
-  return touchIntent.moveX !== 0 || touchIntent.moveY !== 0
-    ? touchIntent
-    : keyboardIntent;
+  return touchIsActive ? touchIntent : keyboardIntent;
 }
 
 export function getRadialMovementIntent(
