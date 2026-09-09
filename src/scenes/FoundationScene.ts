@@ -6,6 +6,7 @@ import {
   FighterStateMachine,
   type FighterSnapshot,
 } from "../actors/FighterStateMachine";
+import { PlayerVisual, preloadPlayerVisual } from "../actors/PlayerVisual";
 import {
   AttackHitbox,
   type FacingDirection,
@@ -48,6 +49,7 @@ import { RoundResultOverlay } from "../ui/RoundResultOverlay";
 export class FoundationScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
   private playerBody!: Phaser.Physics.Arcade.Body;
+  private playerVisual!: PlayerVisual;
   private keyboardMovementInput!: KeyboardMovementInput;
   private touchMovementInput!: TouchMovementInput;
   private keyboardCombatInput!: KeyboardCombatInput;
@@ -72,6 +74,10 @@ export class FoundationScene extends Phaser.Scene {
 
   constructor() {
     super("foundation");
+  }
+
+  preload(): void {
+    preloadPlayerVisual(this);
   }
 
   create(): void {
@@ -145,7 +151,7 @@ export class FoundationScene extends Phaser.Scene {
       .setDepth(1000);
 
     this.add
-      .text(GAME_WIDTH / 2, 155, "M4.2 • Multi-touch", {
+      .text(GAME_WIDTH / 2, 155, "M5 • Character art", {
         color: "#78f0be",
         fontFamily: "Arial, sans-serif",
         fontSize: "30px",
@@ -202,10 +208,12 @@ export class FoundationScene extends Phaser.Scene {
     );
     this.player.setStrokeStyle(6, 0xf4fbff);
     this.physics.add.existing(this.player);
+    this.player.setVisible(false);
 
     this.playerBody = this.player.body as Phaser.Physics.Arcade.Body;
     this.playerBody.setCollideWorldBounds(true);
     this.playerBody.setImmovable(true);
+    this.playerVisual = new PlayerVisual(this);
 
     this.keyboardMovementInput = new KeyboardMovementInput(this);
     this.touchMovementInput = new TouchMovementInput(
@@ -237,6 +245,7 @@ export class FoundationScene extends Phaser.Scene {
     this.roundResultOverlay = new RoundResultOverlay(this, () => {
       this.requestRestart();
     });
+    this.updateFighterPresentation(this.fighterState.getSnapshot());
   }
 
   update(_time: number, delta: number): void {
@@ -373,16 +382,10 @@ export class FoundationScene extends Phaser.Scene {
     if (snapshot.state === "ko") {
       this.player.setFillStyle(0x4b5563);
       this.stateLabel.setText("KO");
-      return;
-    }
-
-    if (snapshot.state === "hit") {
+    } else if (snapshot.state === "hit") {
       this.player.setFillStyle(0xff4d6d);
       this.stateLabel.setText("HIT");
-      return;
-    }
-
-    if (snapshot.state === "attack") {
+    } else if (snapshot.state === "attack") {
       const phaseLabels = {
         startup: "АТАКА • ПОДГОТОВКА",
         active: "АТАКА • УДАР",
@@ -392,17 +395,23 @@ export class FoundationScene extends Phaser.Scene {
 
       this.player.setFillStyle(0xffb43c);
       this.stateLabel.setText(phaseLabels[phase]);
-      return;
-    }
-
-    if (snapshot.state === "move") {
+    } else if (snapshot.state === "move") {
       this.player.setFillStyle(0x54e6a2);
       this.stateLabel.setText("ДВИЖЕНИЕ");
-      return;
+    } else {
+      this.player.setFillStyle(0x37d6ff);
+      this.stateLabel.setText("СТОИТ");
     }
 
-    this.player.setFillStyle(0x37d6ff);
-    this.stateLabel.setText("СТОИТ");
+    this.playerVisual.sync(snapshot, {
+      bodyX: this.player.x,
+      bodyY: this.player.y,
+      bodyHeight: PLAYER_CONFIG.height,
+      arenaScale: this.player.scaleX,
+      depth: this.player.depth,
+      facing: this.facing,
+      hitFlashing: this.playerHitFlash !== undefined,
+    });
   }
 
   private takePlayerDamage(amount: number): void {
@@ -423,10 +432,9 @@ export class FoundationScene extends Phaser.Scene {
     this.updatePlayerHealthLabel();
 
     this.playerHitFlash?.remove(false);
-    this.player.setStrokeStyle(12, 0xffffff);
     this.playerHitFlash = this.time.delayedCall(PLAYER_CONFIG.hitFlashMs, () => {
-      this.player.setStrokeStyle(6, 0xf4fbff);
       this.playerHitFlash = undefined;
+      this.updateFighterPresentation(this.fighterState.getSnapshot());
     });
 
     const snapshot =
